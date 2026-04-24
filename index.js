@@ -1,50 +1,79 @@
 const http = require("http");
+const { Pool } = require("pg");
 
 const PORT = process.env.PORT || 8080;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS players (
+      id SERIAL PRIMARY KEY,
+      account_number TEXT UNIQUE NOT NULL,
+      username TEXT NOT NULL,
+      city TEXT NOT NULL,
+      state TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+}
+
+function generateAccountNumber() {
+  return "DX-" + Math.floor(100000000 + Math.random() * 900000000);
+}
 
 const server = http.createServer((req, res) => {
-
-  // Allow JSON
   res.setHeader("Content-Type", "application/json");
 
-  // ROUTE: CREATE PLAYER
   if (req.method === "POST" && req.url === "/create-player") {
-
     let body = "";
 
     req.on("data", chunk => {
       body += chunk.toString();
     });
 
-    req.on("end", () => {
+    req.on("end", async () => {
       try {
         const data = JSON.parse(body);
+        const accountNumber = generateAccountNumber();
 
-        const accountNumber = "DX-" + Math.floor(100000000 + Math.random() * 900000000);
+        const result = await pool.query(
+          `
+          INSERT INTO players (account_number, username, city, state)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id, account_number, username, city, state, created_at;
+          `,
+          [accountNumber, data.username, data.city, data.state]
+        );
 
         res.writeHead(200);
         res.end(JSON.stringify({
-          accountNumber: accountNumber,
-          username: data.username,
-          city: data.city,
-          state: data.state
+          playerId: result.rows[0].id,
+          accountNumber: result.rows[0].account_number,
+          username: result.rows[0].username,
+          city: result.rows[0].city,
+          state: result.rows[0].state
         }));
       } catch (err) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: "Invalid JSON" }));
+        console.error(err);
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: "Create player failed" }));
       }
     });
 
     return;
   }
 
-  // DEFAULT ROUTE
   res.writeHead(200);
   res.end(JSON.stringify({
     message: "DeedExchange backend is running"
   }));
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+initDb().then(() => {
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 });
