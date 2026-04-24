@@ -74,6 +74,51 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.method === "POST" && req.url === "/update-player") {
+    let body = "";
+
+    req.on("data", chunk => {
+      body += chunk.toString();
+    });
+
+    req.on("end", async () => {
+      try {
+        const data = JSON.parse(body);
+
+        const result = await pool.query(
+          `
+          UPDATE players
+          SET username = $1, city = $2, state = $3
+          WHERE account_number = $4
+          RETURNING id, account_number, username, city, state;
+          `,
+          [data.username, data.city, data.state, data.accountNumber]
+        );
+
+        if (result.rows.length === 0) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ error: "Player not found" }));
+          return;
+        }
+
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          playerId: result.rows[0].id,
+          accountNumber: result.rows[0].account_number,
+          username: result.rows[0].username,
+          city: result.rows[0].city,
+          state: result.rows[0].state
+        }));
+      } catch (err) {
+        console.error("UPDATE PLAYER ERROR:", err);
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: "Update player failed" }));
+      }
+    });
+
+    return;
+  }
+
   res.writeHead(200);
   res.end(JSON.stringify({
     message: "DeedExchange backend is running"
