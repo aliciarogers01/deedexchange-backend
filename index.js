@@ -4,6 +4,7 @@ const http = require("http");
 const { Pool } = require("pg");
 
 const PORT = process.env.PORT || 8080;
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production"
@@ -15,13 +16,16 @@ async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS players (
       id SERIAL PRIMARY KEY,
-      account_number TEXT UNIQUE NOT NULL,
-      username TEXT NOT NULL,
-      city TEXT NOT NULL,
-      state TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS account_number TEXT;`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS username TEXT;`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS city TEXT;`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS state TEXT;`);
+
+  console.log("DB READY");
 }
 
 function generateAccountNumber() {
@@ -61,7 +65,7 @@ const server = http.createServer((req, res) => {
           state: result.rows[0].state
         }));
       } catch (err) {
-        console.error(err);
+        console.error("CREATE PLAYER ERROR:", err);
         res.writeHead(500);
         res.end(JSON.stringify({ error: "Create player failed" }));
       }
