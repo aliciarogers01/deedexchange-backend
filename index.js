@@ -24,6 +24,7 @@ async function initDb() {
   await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS username TEXT;`);
   await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS city TEXT;`);
   await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS state TEXT;`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS profile_image TEXT;`);
 
   console.log("DB READY");
 }
@@ -35,6 +36,7 @@ function generateAccountNumber() {
 const server = http.createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
 
+  // GET PLAYER
   if (req.method === "GET" && req.url.startsWith("/player")) {
     try {
       const url = new URL(req.url, `http://${req.headers.host}`);
@@ -42,7 +44,7 @@ const server = http.createServer((req, res) => {
 
       pool.query(
         `
-        SELECT id, account_number, username, city, state
+        SELECT id, account_number, username, city, state, profile_image
         FROM players
         WHERE account_number = $1;
         `,
@@ -60,7 +62,8 @@ const server = http.createServer((req, res) => {
           accountNumber: result.rows[0].account_number,
           username: result.rows[0].username,
           city: result.rows[0].city,
-          state: result.rows[0].state
+          state: result.rows[0].state,
+          profileImage: result.rows[0].profile_image
         }));
       }).catch(err => {
         console.error("GET PLAYER ERROR:", err);
@@ -76,6 +79,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // CREATE PLAYER
   if (req.method === "POST" && req.url === "/create-player") {
     let body = "";
 
@@ -90,11 +94,17 @@ const server = http.createServer((req, res) => {
 
         const result = await pool.query(
           `
-          INSERT INTO players (account_number, username, city, state)
-          VALUES ($1, $2, $3, $4)
-          RETURNING id, account_number, username, city, state, created_at;
+          INSERT INTO players (account_number, username, city, state, profile_image)
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING id, account_number, username, city, state, profile_image;
           `,
-          [accountNumber, data.username, data.city, data.state]
+          [
+            accountNumber,
+            data.username,
+            data.city,
+            data.state,
+            data.profileImage || ""
+          ]
         );
 
         res.writeHead(200);
@@ -103,7 +113,8 @@ const server = http.createServer((req, res) => {
           accountNumber: result.rows[0].account_number,
           username: result.rows[0].username,
           city: result.rows[0].city,
-          state: result.rows[0].state
+          state: result.rows[0].state,
+          profileImage: result.rows[0].profile_image
         }));
       } catch (err) {
         console.error("CREATE PLAYER ERROR:", err);
@@ -115,6 +126,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // UPDATE PLAYER
   if (req.method === "POST" && req.url === "/update-player") {
     let body = "";
 
@@ -129,11 +141,20 @@ const server = http.createServer((req, res) => {
         const result = await pool.query(
           `
           UPDATE players
-          SET username = $1, city = $2, state = $3
-          WHERE account_number = $4
-          RETURNING id, account_number, username, city, state;
+          SET username = $1,
+              city = $2,
+              state = $3,
+              profile_image = $4
+          WHERE account_number = $5
+          RETURNING id, account_number, username, city, state, profile_image;
           `,
-          [data.username, data.city, data.state, data.accountNumber]
+          [
+            data.username,
+            data.city,
+            data.state,
+            data.profileImage || "",
+            data.accountNumber
+          ]
         );
 
         if (result.rows.length === 0) {
@@ -148,7 +169,8 @@ const server = http.createServer((req, res) => {
           accountNumber: result.rows[0].account_number,
           username: result.rows[0].username,
           city: result.rows[0].city,
-          state: result.rows[0].state
+          state: result.rows[0].state,
+          profileImage: result.rows[0].profile_image
         }));
       } catch (err) {
         console.error("UPDATE PLAYER ERROR:", err);
