@@ -35,6 +35,47 @@ function generateAccountNumber() {
 const server = http.createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
 
+  if (req.method === "GET" && req.url.startsWith("/player")) {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const accountNumber = url.searchParams.get("accountNumber");
+
+      pool.query(
+        `
+        SELECT id, account_number, username, city, state
+        FROM players
+        WHERE account_number = $1;
+        `,
+        [accountNumber]
+      ).then(result => {
+        if (result.rows.length === 0) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ error: "Player not found" }));
+          return;
+        }
+
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          playerId: result.rows[0].id,
+          accountNumber: result.rows[0].account_number,
+          username: result.rows[0].username,
+          city: result.rows[0].city,
+          state: result.rows[0].state
+        }));
+      }).catch(err => {
+        console.error("GET PLAYER ERROR:", err);
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: "Fetch player failed" }));
+      });
+    } catch (err) {
+      console.error("GET PLAYER ERROR:", err);
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: "Fetch player failed" }));
+    }
+
+    return;
+  }
+
   if (req.method === "POST" && req.url === "/create-player") {
     let body = "";
 
