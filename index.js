@@ -107,6 +107,21 @@ app.post("/profile", async (req, res) => {
   }
 });
 
+
+// ================================
+// 🔥 RESET ROUTE (FOR TESTING)
+// ================================
+app.delete("/profile", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM profiles");
+    res.json({ message: "All profiles deleted" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to delete profiles" });
+  }
+});
+
+
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {
