@@ -88,7 +88,7 @@ app.post("/profile", async (req, res) => {
 
     const countResult = await pool.query("SELECT COUNT(*) FROM profiles");
     const nextNumber = Number(countResult.rows[0].count) + 1;
-    const systemId = `DX-${String(nextNumber).padStart(6, "0")}`;
+    const systemId = `DX-${String(nextNumber).padStart(10, "0")}`;
 
     const result = await pool.query(
       `INSERT INTO profiles (username, city, state, zip, system_id, profile_picture)
