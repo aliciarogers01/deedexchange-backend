@@ -16,17 +16,16 @@ async function setupDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS profiles (
       id SERIAL PRIMARY KEY,
-      username TEXT,
-      city TEXT,
-      state TEXT,
-      zip TEXT,
-      system_id TEXT,
+      username TEXT NOT NULL,
+      city TEXT NOT NULL,
+      state TEXT NOT NULL,
+      zip TEXT DEFAULT '',
+      system_id TEXT UNIQUE NOT NULL,
+      profile_picture TEXT DEFAULT '',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
 }
-
-setupDatabase();
 
 app.get("/", (req, res) => {
   res.send("API is running");
@@ -48,7 +47,8 @@ app.get("/profile", async (req, res) => {
         city: "",
         state: "",
         zip: "",
-        systemId: ""
+        systemId: "",
+        profilePicture: ""
       });
     }
 
@@ -59,7 +59,8 @@ app.get("/profile", async (req, res) => {
       city: profile.city,
       state: profile.state,
       zip: profile.zip,
-      systemId: profile.system_id
+      systemId: profile.system_id,
+      profilePicture: profile.profile_picture
     });
   } catch (error) {
     console.error(error);
@@ -69,33 +70,56 @@ app.get("/profile", async (req, res) => {
 
 app.post("/profile", async (req, res) => {
   try {
-    const { username, city, state, zip, systemId } = req.body;
+    const { username, city, state, profilePicture } = req.body;
+
+    if (!username || !city || !state) {
+      return res.status(400).json({
+        error: "Username, city, and state are required"
+      });
+    }
+
+    // Generate unique player ID
+    const countResult = await pool.query("SELECT COUNT(*) FROM profiles");
+    const nextNumber = Number(countResult.rows[0].count) + 1;
+    const systemId = `DX-${String(nextNumber).padStart(6, "0")}`;
 
     const result = await pool.query(
-      `INSERT INTO profiles (username, city, state, zip, system_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO profiles (username, city, state, zip, system_id, profile_picture)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [username, city, state, zip, systemId]
+      [username, city, state, "", systemId, profilePicture || ""]
     );
 
     res.json({
-      message: "Profile saved successfully",
+      message: "Profile created successfully",
       profile: {
         username: result.rows[0].username,
         city: result.rows[0].city,
         state: result.rows[0].state,
         zip: result.rows[0].zip,
-        systemId: result.rows[0].system_id
+        systemId: result.rows[0].system_id,
+        profilePicture: result.rows[0].profile_picture
       }
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Failed to save profile" });
+    res.status(500).json({ error: "Failed to create profile" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await setupDatabase();
+    console.log("Database connected");
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Database failed to connect:", error);
+  }
+}
+
+startServer();
