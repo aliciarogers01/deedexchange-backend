@@ -5,8 +5,6 @@ const { Pool } = require("pg");
 const app = express();
 
 app.use(cors());
-
-// Allow larger image payloads from Unity
 app.use(express.json({ limit: "10mb" }));
 
 const pool = new Pool({
@@ -33,6 +31,18 @@ async function setupDatabase() {
   `);
 }
 
+function formatProfile(row) {
+  return {
+    username: row.username,
+    city: row.city,
+    state: row.state,
+    zip: row.zip,
+    systemId: row.system_id,
+    profilePicture: row.profile_picture || "",
+    createdAt: row.created_at
+  };
+}
+
 app.get("/", (req, res) => {
   res.send("API is running");
 });
@@ -54,20 +64,12 @@ app.get("/profile", async (req, res) => {
         state: "",
         zip: "",
         systemId: "",
-        profilePicture: ""
+        profilePicture: "",
+        createdAt: ""
       });
     }
 
-    const profile = result.rows[0];
-
-    res.json({
-      username: profile.username,
-      city: profile.city,
-      state: profile.state,
-      zip: profile.zip,
-      systemId: profile.system_id,
-      profilePicture: profile.profile_picture || ""
-    });
+    res.json(formatProfile(result.rows[0]));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to load profile" });
@@ -97,14 +99,7 @@ app.post("/profile", async (req, res) => {
 
     res.json({
       message: "Profile created successfully",
-      profile: {
-        username: result.rows[0].username,
-        city: result.rows[0].city,
-        state: result.rows[0].state,
-        zip: result.rows[0].zip,
-        systemId: result.rows[0].system_id,
-        profilePicture: result.rows[0].profile_picture || ""
-      }
+      profile: formatProfile(result.rows[0])
     });
   } catch (error) {
     console.error(error);
