@@ -21,9 +21,13 @@ async function setupDatabase() {
       state TEXT NOT NULL,
       zip TEXT DEFAULT '',
       system_id TEXT UNIQUE NOT NULL,
-      profile_picture TEXT DEFAULT '',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `);
+
+  await pool.query(`
+    ALTER TABLE profiles
+    ADD COLUMN IF NOT EXISTS profile_picture TEXT DEFAULT '';
   `);
 }
 
@@ -60,7 +64,7 @@ app.get("/profile", async (req, res) => {
       state: profile.state,
       zip: profile.zip,
       systemId: profile.system_id,
-      profilePicture: profile.profile_picture
+      profilePicture: profile.profile_picture || ""
     });
   } catch (error) {
     console.error(error);
@@ -78,7 +82,6 @@ app.post("/profile", async (req, res) => {
       });
     }
 
-    // Generate unique player ID
     const countResult = await pool.query("SELECT COUNT(*) FROM profiles");
     const nextNumber = Number(countResult.rows[0].count) + 1;
     const systemId = `DX-${String(nextNumber).padStart(6, "0")}`;
@@ -98,7 +101,7 @@ app.post("/profile", async (req, res) => {
         state: result.rows[0].state,
         zip: result.rows[0].zip,
         systemId: result.rows[0].system_id,
-        profilePicture: result.rows[0].profile_picture
+        profilePicture: result.rows[0].profile_picture || ""
       }
     });
   } catch (error) {
