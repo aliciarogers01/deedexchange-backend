@@ -5,7 +5,9 @@ const { Pool } = require("pg");
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+
+// Allow larger image payloads from Unity
+app.use(express.json({ limit: "10mb" }));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -76,9 +78,9 @@ app.post("/profile", async (req, res) => {
   try {
     const { username, city, state, profilePicture } = req.body;
 
-    if (!username || !city || !state) {
+    if (!username || !city || !state || !profilePicture) {
       return res.status(400).json({
-        error: "Username, city, and state are required"
+        error: "Username, city, state, and profile picture are required"
       });
     }
 
@@ -90,7 +92,7 @@ app.post("/profile", async (req, res) => {
       `INSERT INTO profiles (username, city, state, zip, system_id, profile_picture)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [username, city, state, "", systemId, profilePicture || ""]
+      [username, city, state, "", systemId, profilePicture]
     );
 
     res.json({
